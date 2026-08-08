@@ -1,0 +1,2 @@
+baseline_roc_auc,tuned_roc_auc,roc_auc_improvement,total_tuning_time_min,n_iter,n_folds,total_fits,gpu_device
+0.7462439613642734,0.76353489246616,0.01729093110188662,4.56,20,3,60,cuda

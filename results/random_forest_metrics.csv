@@ -1,0 +1,6 @@
+Metric,Train,Test
+Accuracy,1.0,0.9193
+F1 Score,1.0,0.0024
+Precision,1.0,0.4615
+ROC-AUC,,0.7037
+Recall,1.0,0.0012

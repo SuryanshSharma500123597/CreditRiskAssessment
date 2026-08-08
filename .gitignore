@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+dataset/raw/
+dataset/processed/
+dataset/processed_models/
+.venv/
+venv/
+models/random_forest_model.pkl

@@ -1,0 +1,2 @@
+recommended_model,Accuracy,Precision,Recall,F1,ROC-AUC,MCC,Prediction Time
+Tuned XGBoost (GPU),0.9196,0.5324,0.0314,0.0593,0.7635,0.1147,0.1789

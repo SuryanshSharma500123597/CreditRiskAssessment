@@ -1,0 +1,6 @@
+Model,Interpretability,Training Complexity,Prediction Speed,Scalability,Business Suitability,Advantages,Limitations,Deployment Readiness
+Logistic Regression,High,Low,Fast,High,Regulatory-heavy screening,"Fully transparent coefficients, fast, cheap to retrain",Misses non-linear feature interactions,Ready
+Decision Tree,High,Low,Fast,Medium,Explaining individual decisions,"Readable if-then rules, captures non-linearity","Overfits, unstable across retraining",Needs pruning first
+Random Forest,Medium,Medium,Medium,Medium,General production scoring,"Stable, robust to noise, resists overfitting","Slower, harder to explain a single decision",Ready
+XGBoost,Low,Medium-High,Medium,High,High-volume automated scoring,Typically highest raw accuracy on tabular data,"Least interpretable, more hyperparameters",Needs explainability layer
+Tuned XGBoost (GPU),Low,High,Medium,High,High-volume automated scoring at best available accuracy,Best accuracy after GPU-accelerated tuning (Notebook 10),"Least interpretable, extra tuning/maintenance cost, needs explainability layer",Needs explainability layer

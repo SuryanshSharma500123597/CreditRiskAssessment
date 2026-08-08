@@ -1,0 +1,4 @@
+Applicant,Predicted Class,Probability,Risk Category,Prediction Time (s)
+Lower-Risk Example,Low Risk,0.0561,LOW RISK,0.32897
+Medium-Risk Example,Low Risk,0.1464,LOW RISK,0.377
+Higher-Risk Example,Low Risk,0.2678,LOW RISK,0.334

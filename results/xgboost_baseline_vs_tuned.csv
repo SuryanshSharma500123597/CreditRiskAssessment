@@ -1,0 +1,7 @@
+Metric,Baseline,Tuned,Improvement
+Accuracy,0.9195,0.9196,0.0001
+Precision,0.5426,0.5324,-0.0102
+Recall,0.0141,0.0314,0.0173
+F1 Score,0.0275,0.0593,0.0319
+ROC-AUC,0.7462,0.7635,0.0173
+MCC,0.0777,0.1147,0.037
