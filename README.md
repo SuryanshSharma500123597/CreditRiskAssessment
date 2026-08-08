@@ -1,109 +1,146 @@
 # Credit Risk Assessment System
 
-A complete, end-to-end machine learning project that predicts the probability
-a loan applicant will experience payment difficulty, using the
-[Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk)
-dataset. Built as an internship / portfolio project covering the full
-lifecycle: data understanding → cleaning → feature engineering → modeling →
-explainability → a deployable prediction pipeline and demo app.
+> **2-Month Summer Internship Project — Machine Learning & Full-Stack Web Application**
 
-> **Demonstration project — not a real lending decision.** Risk thresholds
-> and outputs are for educational purposes only and are not bank-approved
-> regulatory thresholds.
+An end-to-end explainable machine learning system and full-stack web application designed to evaluate loan applicant risk using historical data from the [Home Credit Default Risk](https://www.kaggle.com/c/home-credit-default-risk) dataset (307,511 applicants × 122 columns).
 
-## Project Structure
+The system combines a GPU-accelerated **Tuned XGBoost** model, **SHAP explainability**, a high-performance **FastAPI** backend, and a modern, responsive **React + Vite** frontend.
+
+---
+
+## 🌟 Key Features
+
+* **Full-Stack Architecture**: Decoupled FastAPI backend and Vite + React frontend.
+* **GPU-Accelerated XGBoost**: Trained with `tree_method="hist"` and `device="cuda"` (NVIDIA RTX 3050 Ti GPU).
+* **SHAP Explainability**: Per-prediction breakdown of top positive and negative factors influencing the model's risk score.
+* **Interactive Risk Meter**: Visual gauge displaying predicted probability (0–100%) and risk categories (`LOW < 30%`, `MEDIUM 30–60%`, `HIGH >= 60%`).
+* **Model Comparison & Analytics**: Interactive charts and comparison tables evaluating 5 ML algorithms on a 61,503-sample held-out test set.
+* **Auto-Fill Demo Applicant**: Pre-populated sample data for instant demonstration without manual form entry.
+
+---
+
+## 📁 Project Structure
 
 ```
-credit-risk-assessment-system/
-├── notebooks/
-│   ├── 01_Data_Loading.ipynb
+Credit Risk Assessment System/
+├── backend/
+│   ├── main.py                  # FastAPI server & endpoints
+│   ├── setup_pipeline.py        # One-time pipeline builder & artifact saver
+│   ├── services/
+│   │   └── pipeline.py          # Prediction & SHAP explanation service
+│   └── schemas/
+│       └── predict.py           # Pydantic request/response schemas
+├── frontend/
+│   ├── src/
+│   │   ├── components/          # Navbar, HeroSection, RiskForm, RiskMeter, RiskResult, ShapExplanation
+│   │   ├── pages/               # AssessmentPage, InsightsPage, AboutPage
+│   │   ├── services/            # Centralized API fetch service (api.js)
+│   │   ├── App.jsx              # Root router & page layout
+│   │   └── index.css            # Dark theme CSS & design tokens
+│   ├── package.json
+│   └── vite.config.js
+├── Notebook/
+│   ├── 01_DataLoading.ipynb
 │   ├── 02_EDA.ipynb
-│   ├── 03_Data_Cleaning_and_Feature_Engineering.ipynb
-│   ├── 04_Feature_Selection.ipynb
-│   ├── 05_Data_Preprocessing_for_Modeling.ipynb
-│   ├── 06_Logistic_Regression.ipynb
-│   ├── 07_Decision_Tree.ipynb
-│   ├── 08_Random_Forest.ipynb
+│   ├── 03_DataCleaning_FeatureEngineering.ipynb
+│   ├── 04_FeatureSelection.ipynb
+│   ├── 05_DataPreprocessing_Modeling.ipynb
+│   ├── 06_LogisticRegression.ipynb
+│   ├── 07_DecisionTree.ipynb
+│   ├── 08_RandomForest.ipynb
 │   ├── 09_XGBoost.ipynb
-│   ├── 10_Hyperparameter_Tuning_GPU.ipynb
-│   ├── 11_Model_Comparison_and_Final_Model_Selection.ipynb
+│   ├── 10-Hypertuning.ipynb
+│   ├── 11_ModelComparision.ipynb
 │   ├── 12_SHAP_Explainability.ipynb
-│   └── 13_Prediction_Pipeline.ipynb
-├── app/
-│   ├── app.py
-│   └── pipeline.py
+│   └── 13_PredictionPipeline.ipynb
 ├── models/
-│   └── pipeline/          # saved model + preprocessing artifacts (see .gitattributes for LFS)
-├── results/                # saved metrics, comparison tables, SHAP outputs
-├── requirements.txt
-└── README.md
+│   └── pipeline/                # Saved model, preprocessor, & schemas
+├── results/                     # Saved metrics CSVs & SHAP importances
+├── README.md
+└── requirements.txt
 ```
 
-## Pipeline Overview
+---
 
-1. **Data Loading & EDA** (01–02) — load the raw `application_train.csv`
-   (307,511 rows × 122 columns), inspect structure, missingness, and the
-   target's class imbalance (~8% default rate).
-2. **Cleaning & Feature Engineering** (03) — drop columns with >65% missing
-   values, impute (median/mode), flag the `DAYS_EMPLOYED` anomaly, and
-   engineer ratio features (`CREDIT_INCOME_RATIO`, `ANNUITY_INCOME_RATIO`,
-   `AGE`, `YEARS_EMPLOYED`, etc.).
-3. **Feature Selection** (04) — rank features via Mutual Information,
-   SelectKBest, and Random Forest importance; produce Top 20/30/40/50 subsets.
-4. **Preprocessing** (05) — train/test split (80/20, stratified), one-hot
-   encoding (fit on train only), SMOTE (train only), and two output
-   versions: scaled (for Logistic Regression) and unscaled (for tree models).
-5. **Modeling** (06–09) — baseline Logistic Regression, Decision Tree,
-   Random Forest, and XGBoost (GPU-enabled: `tree_method="hist"`,
-   `device="cuda"`).
-6. **Hyperparameter Tuning** (10) — GPU-accelerated `RandomizedSearchCV`
-   on XGBoost only (`n_jobs=1` to respect limited VRAM).
-7. **Model Comparison & Selection** (11) — evaluate all models on ROC-AUC,
-   Recall, Precision, F1, MCC, and prediction time; select the final model.
-8. **Explainability** (12) — SHAP global and local explanations for the
-   selected model.
-9. **Prediction Pipeline** (13) — a reusable `CreditRiskPipeline` that
-   validates, engineers features, preprocesses, predicts, and explains a
-   single new applicant without retraining anything.
-10. **Streamlit App** (`app/`) — a simple demo UI around the saved pipeline.
+## 📊 Model Comparison & Performance
 
-## Key Design Decisions
+All models were evaluated on the exact same 20% stratified held-out test set (**61,503 applicants**):
 
-- **No data leakage**: all encoders/scalers are fit only on training data;
-  SMOTE is applied only to training data; the test set is never touched
-  during feature selection or hyperparameter tuning.
-- **ROC-AUC and Recall as primary metrics**, given the ~8% class imbalance
-  — accuracy alone would be misleading.
-- **SHAP over ad-hoc feature importance** for the final explainability
-  layer, giving both global and per-applicant explanations without
-  claiming causality.
-- **GPU-accelerated XGBoost tuning** (RTX 3050 Ti, 4GB VRAM) using
-  `tree_method="hist"` + `device="cuda"`, with `n_jobs=1` in the search to
-  avoid concurrent CUDA jobs exhausting VRAM.
+| Model | Accuracy | Precision | Recall | F1 Score | ROC-AUC | MCC | Selected |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **Tuned XGBoost (GPU)** | **0.9196** | **0.5324** | **0.0314** | **0.0593** | **0.7635** | **0.1147** | **Final Model** |
+| **Logistic Regression** | 0.6944 | 0.1628 | 0.6725 | 0.2621 | 0.7465 | 0.2131 | Baseline |
+| **XGBoost (Default)** | 0.9195 | 0.5426 | 0.0141 | 0.0275 | 0.7462 | 0.0777 | Baseline |
+| **Random Forest** | 0.9193 | 0.4615 | 0.0012 | 0.0024 | 0.7037 | 0.0203 | Baseline |
+| **Decision Tree** | 0.8447 | 0.1368 | 0.1740 | 0.1532 | 0.5388 | 0.0697 | Baseline |
 
-## Running the Notebooks
+---
 
-```bash
-pip install -r requirements.txt
-jupyter notebook notebooks/
-```
-Run notebooks 01 → 13 in order; each depends on artifacts saved by the
-previous ones.
+## 🔌 Backend API Endpoints
 
-## Running the App
+The FastAPI backend exposes the following REST endpoints under `http://localhost:8000`:
 
-```bash
-cd app
-pip install -r ../requirements.txt
-streamlit run app.py
+* **`GET /api/health`**: Returns system health status and model load state.
+* **`GET /api/model-info`**: Returns specs for the active model (Tuned XGBoost GPU, 149 features, risk thresholds).
+* **`GET /api/model-comparison`**: Returns performance metrics for all 5 trained models.
+* **`GET /api/shap/features`**: Returns pre-computed global SHAP feature importances.
+* **`GET /api/demo-applicant`**: Returns pre-filled applicant values for quick demo submission.
+* **`POST /api/predict`**: Accepts raw applicant JSON, runs preprocessing, predicts default probability, assigns risk category, and computes top SHAP risk factors.
+
+---
+
+## ⚡ Quick Start Guide
+
+### Prerequisites
+* **Python 3.10+**
+* **Node.js 18+** & **npm**
+* NVIDIA GPU (Optional: XGBoost will fall back if CUDA is unavailable)
+
+### 1. Backend Setup
+
+```powershell
+# Navigate to the backend directory
+cd "E:\Credit Risk Assessment System\backend"
+
+# Install Python dependencies
+pip install -r ..\requirements.txt
+
+# Run one-time pipeline builder (generates models/pipeline/ artifacts)
+python setup_pipeline.py
+
+# Start FastAPI backend server
+python -m uvicorn main:app --reload --port 8000
 ```
 
-## Tech Stack
+The API will be live at `http://localhost:8000`. Interactive docs are available at `http://localhost:8000/docs`.
 
-Python · pandas · NumPy · scikit-learn · XGBoost (GPU) · SHAP · imbalanced-learn (SMOTE) · Streamlit · Matplotlib/Seaborn
+### 2. Frontend Setup
 
-## Disclaimer
+```powershell
+# In a new terminal, navigate to the frontend directory
+cd "E:\Credit Risk Assessment System\frontend"
 
-This project is for educational/portfolio purposes. Model outputs, risk
-categories, and thresholds are demonstrations only and must not be used
-for actual lending decisions.
+# Install npm packages
+npm install
+
+# Start Vite development server
+npm run dev
+```
+
+The Web UI will be live at `http://localhost:5173`.
+
+---
+
+## 🛠️ Technology Stack
+
+* **Machine Learning**: Python 3.10 · scikit-learn · XGBoost 3.2 (CUDA GPU) · SHAP · pandas · NumPy · joblib
+* **Backend**: FastAPI 0.135 · Uvicorn · Pydantic
+* **Frontend**: React 19 · Vite · Tailwind CSS · Framer Motion · Recharts · Lucide React
+
+---
+
+## ⚠️ Limitations & Academic Disclaimer
+
+* **Demonstration Purpose Only**: This is an internship portfolio project. Risk probabilities and thresholds (`LOW < 30%`, `MEDIUM 30–60%`, `HIGH >= 60%`) are for demonstration purposes and are **not regulatory bank thresholds**.
+* **Model Behavior vs. Causality**: SHAP values explain features the model used to arrive at a probability; they do **not** represent real-world cause-and-effect relationships.
+* **Data Storage**: Predictions are processed in-memory and not stored in a permanent database.
