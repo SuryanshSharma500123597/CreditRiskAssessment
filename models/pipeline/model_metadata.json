@@ -1,0 +1,35 @@
+{
+  "model": "Tuned XGBoost (GPU + ScalePosWeight)",
+  "model_type": "binary classification",
+  "positive_class": 1,
+  "feature_count": 149,
+  "gpu_used": true,
+  "scale_pos_weight": 11.3871,
+  "threshold_method": "validation_mcc_f1_optimization",
+  "low_threshold": 0.35,
+  "high_threshold": 0.64,
+  "training_date": "2026-08-09 10:53:34",
+  "best_hyperparameters": {
+    "max_depth": 6,
+    "learning_rate": 0.05,
+    "n_estimators": 300,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "min_child_weight": 3
+  },
+  "metrics": {
+    "Accuracy": 0.845,
+    "Precision": 0.246,
+    "Recall": 0.4451,
+    "F1": 0.3168,
+    "ROC-AUC": 0.7656,
+    "PR-AUC": 0.2558,
+    "MCC": 0.2509,
+    "TN": 49763,
+    "FP": 6775,
+    "FN": 2755,
+    "TP": 2210,
+    "FPR": 0.1198,
+    "FNR": 0.5549
+  }
+}

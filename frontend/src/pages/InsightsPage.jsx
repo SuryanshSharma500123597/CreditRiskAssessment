@@ -224,7 +224,7 @@ export default function InsightsPage() {
               aria-label="Model performance comparison table">
               <thead>
                 <tr style={{ borderBottom: '1px solid #1e293b' }}>
-                  {['Model', 'Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'MCC'].map(h => (
+                  {['Model', 'Accuracy', 'Precision', 'Recall (High Risk)', 'F1 Score', 'ROC-AUC', 'MCC'].map(h => (
                     <th key={h} style={{
                       padding: '10px 12px', textAlign: h === 'Model' ? 'left' : 'right',
                       color: '#64748b', fontWeight: 600, fontSize: 12,
@@ -234,34 +234,34 @@ export default function InsightsPage() {
                 </tr>
               </thead>
               <tbody>
-                {models.sort((a, b) => b['ROC-AUC'] - a['ROC-AUC']).map((m, i) => {
-                  const isFinal = m.Model === finalModel;
+                {models.map((m, i) => {
+                  const isFinal = m.Model.includes('Improved') || m.Model === finalModel;
                   return (
                     <tr key={m.Model}
                       style={{
                         borderBottom: '1px solid #0f172a',
-                        background: isFinal ? 'rgba(99,102,241,0.06)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
+                        background: isFinal ? 'rgba(99,102,241,0.08)' : i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.01)',
                       }}
                     >
                       <td style={{ padding: '12px', fontWeight: isFinal ? 700 : 500 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{
                             width: 8, height: 8, borderRadius: '50%',
-                            background: MODEL_COLORS[m.Model] || '#64748b',
+                            background: isFinal ? '#6366f1' : (MODEL_COLORS[m.Model] || '#64748b'),
                             flexShrink: 0,
                           }} />
                           <span style={{ color: isFinal ? '#818cf8' : '#e2e8f0' }}>{m.Model}</span>
                           {isFinal && (
                             <span style={{
                               fontSize: 10, padding: '2px 6px', borderRadius: 4,
-                              background: 'rgba(99,102,241,0.2)', color: '#818cf8', fontWeight: 700,
-                            }}>FINAL</span>
+                              background: 'rgba(99,102,241,0.25)', color: '#818cf8', fontWeight: 700,
+                            }}>FINAL MODEL</span>
                           )}
                         </div>
                       </td>
                       {['Accuracy', 'Precision', 'Recall', 'F1', 'ROC-AUC', 'MCC'].map(metric => (
                         <td key={metric} style={{ padding: '12px', textAlign: 'right' }}>
-                          <MetricBadge value={m[metric]} highlight={isFinal && metric === 'ROC-AUC'} />
+                          <MetricBadge value={m[metric]} highlight={isFinal && (metric === 'Recall' || metric === 'F1' || metric === 'ROC-AUC')} />
                         </td>
                       ))}
                     </tr>

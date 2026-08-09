@@ -30,14 +30,14 @@ class ApplicantInput(BaseModel):
     EXT_SOURCE_3: Optional[float] = Field(None, ge=0, le=1, description="External data source 3 normalized score")
 
     # Categorical
-    CODE_GENDER: str = Field(..., description="Gender: M or F")
-    NAME_EDUCATION_TYPE: str = Field(..., description="Education level")
-    NAME_INCOME_TYPE: str = Field(..., description="Income category")
-    NAME_HOUSING_TYPE: str = Field(..., description="Housing situation")
-    OCCUPATION_TYPE: str = Field(..., description="Occupation")
-    ORGANIZATION_TYPE: str = Field(..., description="Organization type of employer")
-    NAME_TYPE_SUITE: str = Field(..., description="Who accompanied client")
-    FLAG_OWN_CAR: str = Field(..., description="Y or N — client owns car")
+    CODE_GENDER: str = Field(default="F", description="Gender: M or F")
+    NAME_EDUCATION_TYPE: str = Field(default="Secondary / secondary special", description="Education level")
+    NAME_INCOME_TYPE: str = Field(default="Working", description="Income category")
+    NAME_HOUSING_TYPE: Optional[str] = Field(default="House / apartment", description="Housing situation")
+    OCCUPATION_TYPE: Optional[str] = Field(default="Laborers", description="Occupation")
+    ORGANIZATION_TYPE: Optional[str] = Field(default="Business Entity Type 3", description="Organization type of employer")
+    NAME_TYPE_SUITE: Optional[str] = Field(default="Unaccompanied", description="Who accompanied client")
+    FLAG_OWN_CAR: Optional[str] = Field(default="N", description="Y or N — client owns car")
 
     # Flags
     FLAG_DOCUMENT_3: Optional[float] = Field(None, description="Document 3 provided (0 or 1)")

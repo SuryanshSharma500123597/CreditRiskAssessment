@@ -1,8 +1,5 @@
 """
-pipeline.py — Wraps the credit risk prediction pipeline for FastAPI.
-
-This module mirrors the logic from Notebook 13 (CreditRiskPipeline class)
-using the pre-saved artifacts from setup_pipeline.py.
+pipeline.py — Wraps the credit risk prediction pipeline for FastAPI and standalone scripts.
 """
 
 import json
@@ -16,7 +13,6 @@ import pandas as pd
 
 warnings.filterwarnings("ignore")
 
-
 BASE_DIR = Path(r"E:\Credit Risk Assessment System")
 PIPELINE_DIR = BASE_DIR / "models" / "pipeline"
 RESULT_DIR = BASE_DIR / "results"
@@ -25,7 +21,6 @@ RESULT_DIR = BASE_DIR / "results"
 class CreditRiskPipelineService:
     """
     Loads pre-built pipeline artifacts once and provides predict/explain methods.
-    Mirrors the CreditRiskPipeline class from Notebook 13.
     """
 
     def __init__(self):
@@ -37,10 +32,11 @@ class CreditRiskPipelineService:
         self.thresholds = None
         self.raw_feature_metadata = None
         self.shap_explainer = None
+        self.demo_applicant = {}
         self._loaded = False
 
     def load(self):
-        """Load all pipeline artifacts. Call once at FastAPI startup."""
+        """Load all pipeline artifacts. Call once at FastAPI startup or script execution."""
         print("[Pipeline] Loading artifacts from", PIPELINE_DIR)
 
         self.model = joblib.load(PIPELINE_DIR / "final_model.pkl")
@@ -54,84 +50,86 @@ class CreditRiskPipelineService:
         self.thresholds = json.loads((PIPELINE_DIR / "risk_thresholds.json").read_text())
         self.raw_feature_metadata = joblib.load(PIPELINE_DIR / "raw_feature_metadata.pkl")
 
-        # Load demo applicant
         demo_path = PIPELINE_DIR / "demo_applicant.json"
         if demo_path.exists():
             self.demo_applicant = json.loads(demo_path.read_text())
-        else:
-            self.demo_applicant = {}
 
-        # Initialize SHAP explainer (using TreeExplainer — fast for XGBoost)
         self._init_shap_explainer()
 
         self._loaded = True
-        model_name = self.raw_feature_metadata.get("final_model_name", "XGBoost")
-        print(f"[Pipeline] Loaded: {model_name}")
+        model_name = self.raw_feature_metadata.get("final_model_name", "Tuned XGBoost (GPU + ScalePosWeight)")
+        print(f"[Pipeline] Loaded model: {model_name}")
 
         return self
 
     def _init_shap_explainer(self):
-        """Initialize SHAP TreeExplainer for fast per-prediction explanations."""
+        """Initialize SHAP TreeExplainer cleanly for XGBoost."""
         try:
             import shap
             shap_bg_path = PIPELINE_DIR / "shap_background.pkl"
             if shap_bg_path.exists():
                 background = joblib.load(shap_bg_path)
                 if background is not None:
-                    # Reindex background to match expected features
                     background = background.reindex(columns=self.expected_features, fill_value=0)
-                    self.shap_explainer = shap.TreeExplainer(self.model)
-                    print(f"[Pipeline] SHAP TreeExplainer initialized with {len(background)} background samples")
+                    self.shap_explainer = shap.TreeExplainer(self.model, data=background.head(50))
+                    print(f"[Pipeline] SHAP TreeExplainer initialized with background samples.")
                     return
-            # Fallback: create explainer without background data
+
             self.shap_explainer = shap.TreeExplainer(self.model)
-            print("[Pipeline] SHAP TreeExplainer initialized (no background)")
+            print("[Pipeline] SHAP TreeExplainer initialized (no background).")
         except Exception as e:
-            print(f"[Pipeline] WARNING: SHAP explainer init failed: {e}")
+            print(f"[Pipeline] SHAP explainer fallback enabled: {e}")
             self.shap_explainer = None
 
-    # -----------------------------------------------------------------------
-    # Feature Engineering (mirrors Notebook 3 logic exactly)
-    # -----------------------------------------------------------------------
     def _engineer_features(self, applicant: dict) -> dict:
-        """Apply the same feature engineering as Notebook 3."""
+        """Apply derived feature calculations (age, employment, ratios, logs)."""
         result = dict(applicant)
 
-        income = applicant.get("AMT_INCOME_TOTAL", 1)
-        credit = applicant.get("AMT_CREDIT", 1)
-        annuity = applicant.get("AMT_ANNUITY", 1)
-        goods = applicant.get("AMT_GOODS_PRICE", 1)
-        days_birth = applicant.get("DAYS_BIRTH", -1)
-        days_employed = applicant.get("DAYS_EMPLOYED", -1)
-        cnt_children = applicant.get("CNT_CHILDREN", 0)
-        cnt_fam = applicant.get("CNT_FAM_MEMBERS", 1)
+        # Handle age_years if passed directly from frontend
+        if "age_years" in result and "DAYS_BIRTH" not in result:
+            result["DAYS_BIRTH"] = -float(result["age_years"]) * 365.25
 
-        # Derived features (same as Notebook 3)
+        # Handle employment_years if passed directly from frontend
+        if "employment_years" in result and "DAYS_EMPLOYED" not in result:
+            emp_yrs = float(result["employment_years"])
+            result["DAYS_EMPLOYED"] = -emp_yrs * 365.25 if emp_yrs > 0 else 365243
+
+        income = float(result.get("AMT_INCOME_TOTAL", 1))
+        credit = float(result.get("AMT_CREDIT", 1))
+        annuity = float(result.get("AMT_ANNUITY", 1))
+        goods = float(result.get("AMT_GOODS_PRICE", 1))
+        days_birth = float(result.get("DAYS_BIRTH", -12000))
+        days_employed = float(result.get("DAYS_EMPLOYED", -1800))
+        cnt_children = float(result.get("CNT_CHILDREN", 0))
+        cnt_fam = float(result.get("CNT_FAM_MEMBERS", 1))
+
+        # Derived features
         result["AGE"] = abs(days_birth) / 365.25
-        # DAYS_EMPLOYED = 365243 means unemployed in this dataset
-        years_employed = abs(days_employed) / 365.25 if days_employed != 365243 else 0
+        years_employed = abs(days_employed) / 365.25 if days_employed != 365243 else 0.0
         result["YEARS_EMPLOYED"] = years_employed
 
-        result["CREDIT_INCOME_RATIO"] = credit / max(income, 1)
-        result["ANNUITY_INCOME_RATIO"] = annuity / max(income, 1)
-        result["GOODS_CREDIT_RATIO"] = goods / max(credit, 1)
-        result["EMPLOYMENT_AGE_RATIO"] = years_employed / max(result["AGE"], 1)
-        result["INCOME_PER_CHILD"] = income / max(cnt_children, 1)
-        result["CREDIT_PER_CHILD"] = credit / max(cnt_children, 1)
-        result["ANNUITY_CREDIT_RATIO"] = annuity / max(credit, 1)
+        result["CREDIT_INCOME_RATIO"] = credit / max(income, 1.0)
+        result["ANNUITY_INCOME_RATIO"] = annuity / max(income, 1.0)
+        result["GOODS_CREDIT_RATIO"] = goods / max(credit, 1.0)
+        result["EMPLOYMENT_AGE_RATIO"] = years_employed / max(result["AGE"], 1.0)
+        result["INCOME_PER_CHILD"] = income / max(cnt_children, 1.0)
+        result["CREDIT_PER_CHILD"] = credit / max(cnt_children, 1.0)
+        result["ANNUITY_CREDIT_RATIO"] = annuity / max(credit, 1.0)
         result["FAMILY_SIZE"] = cnt_fam
 
-        # Log transforms
         result["LOG_AMT_CREDIT"] = np.log1p(credit)
         result["LOG_AMT_INCOME_TOTAL"] = np.log1p(income)
 
         return result
 
-    # -----------------------------------------------------------------------
-    # Input validation
-    # -----------------------------------------------------------------------
+    def _fill_defaults(self, applicant: dict) -> dict:
+        """Autofill missing raw feature template fields with demo defaults."""
+        full_applicant = dict(self.demo_applicant)
+        full_applicant.update(applicant)
+        return full_applicant
+
     def _validate_input(self, applicant: dict) -> list:
-        """Return list of validation errors; empty list = valid."""
+        """Validate input payload."""
         errors = []
         meta = self.raw_feature_metadata
         raw_template = meta["raw_feature_template"]
@@ -142,36 +140,29 @@ class CreditRiskPipelineService:
             if col not in applicant:
                 errors.append(f"Missing required field: '{col}'")
                 continue
-            value = applicant[col]
-            if value is None or (isinstance(value, float) and np.isnan(value)):
+            val = applicant[col]
+            if val is None or (isinstance(val, float) and np.isnan(val)):
                 errors.append(f"Missing value for field: '{col}'")
                 continue
-            if col in all_numeric and not isinstance(value, (int, float)):
-                errors.append(f"'{col}' must be numeric, got {type(value).__name__}: {value!r}")
-                continue
-            if col in all_categorical:
-                valid_cats = set(meta["categorical_choices"].get(col, []))
-                if valid_cats and value not in valid_cats:
-                    errors.append(f"'{col}' has unknown category '{value}'")
+            if col in all_numeric and not isinstance(val, (int, float, np.number)):
+                try:
+                    float(val)
+                except Exception:
+                    errors.append(f"'{col}' must be numeric, got {type(val).__name__}: {val!r}")
             if col in ("AMT_INCOME_TOTAL", "AMT_CREDIT", "AMT_ANNUITY", "AMT_GOODS_PRICE", "CNT_CHILDREN", "CNT_FAM_MEMBERS"):
-                if isinstance(value, (int, float)) and value < 0:
-                    errors.append(f"'{col}' cannot be negative, got {value}")
-            if col in ("DAYS_BIRTH", "DAYS_EMPLOYED"):
-                if isinstance(value, (int, float)) and value > 0 and value != 365243:
-                    errors.append(f"'{col}' should be negative (days before application), got {value}")
+                if float(val) < 0:
+                    errors.append(f"'{col}' cannot be negative, got {val}")
 
         return errors
 
-    # -----------------------------------------------------------------------
-    # Preprocessing
-    # -----------------------------------------------------------------------
     def _preprocess(self, applicant: dict) -> pd.DataFrame:
-        """Validate → engineer → encode → align columns."""
-        errors = self._validate_input(applicant)
+        """Full preprocessing flow: autofill defaults → engineer → encode → align."""
+        filled_applicant = self._fill_defaults(applicant)
+        errors = self._validate_input(filled_applicant)
         if errors:
             raise ValueError("Input validation failed:\n" + "\n".join(errors))
 
-        engineered = self._engineer_features(applicant)
+        engineered = self._engineer_features(filled_applicant)
 
         selected_features = self.raw_feature_metadata["selected_features"]
         row = pd.DataFrame([engineered])[selected_features]
@@ -189,13 +180,9 @@ class CreditRiskPipelineService:
                 index=encoded.index,
             )
 
-        # Align to expected feature order; fill unseen dummies with 0
         aligned = encoded.reindex(columns=self.expected_features, fill_value=0)
         return aligned
 
-    # -----------------------------------------------------------------------
-    # Risk category
-    # -----------------------------------------------------------------------
     def _get_risk_category(self, probability: float) -> str:
         low = self.thresholds["low_threshold"]
         high = self.thresholds["high_threshold"]
@@ -205,46 +192,47 @@ class CreditRiskPipelineService:
             return "MEDIUM"
         return "HIGH"
 
-    # -----------------------------------------------------------------------
-    # Predict
-    # -----------------------------------------------------------------------
     def predict(self, applicant: dict) -> dict:
-        """Run full pipeline: validate → engineer → preprocess → predict."""
+        """Predict credit risk probability and assign risk category."""
         X_row = self._preprocess(applicant)
-        predicted_class = int(self.model.predict(X_row)[0])
         probability = float(self.model.predict_proba(X_row)[0, 1])
+
+        # Predicted class based on high threshold
+        high_thresh = self.thresholds["high_threshold"]
+        predicted_class = 1 if probability >= high_thresh else 0
         risk_category = self._get_risk_category(probability)
+
+        model_name = self.raw_feature_metadata.get("final_model_name", "Tuned XGBoost (GPU + ScalePosWeight)")
+
+        # Safe internal logging
+        print(f"[Prediction Log] Probability: {probability:.4f} | Class: {predicted_class} | Category: {risk_category} | Model: {model_name} | Thresholds: LOW<{self.thresholds['low_threshold']}, HIGH>={self.thresholds['high_threshold']}")
+
         return {
             "predicted_class": predicted_class,
             "probability": round(probability, 6),
             "risk_category": risk_category,
-            "model": self.raw_feature_metadata.get("final_model_name", "XGBoost"),
+            "model": model_name,
         }
 
-    # -----------------------------------------------------------------------
-    # Explain (SHAP)
-    # -----------------------------------------------------------------------
     def explain(self, applicant: dict, top_n: int = 7) -> dict:
-        """
-        Return top positive and negative SHAP contributors for one applicant.
-        Returns empty lists if SHAP is unavailable.
-        """
-        if self.shap_explainer is None:
-            return {"positive": [], "negative": []}
-
+        """Return top risk increasing and risk decreasing SHAP factors."""
         try:
             X_row = self._preprocess(applicant)
-            shap_values = self.shap_explainer.shap_values(X_row)
 
-            # TreeExplainer for binary classification returns array or list of 2 arrays
-            if isinstance(shap_values, list):
-                values = shap_values[1][0]  # class 1
+            if self.shap_explainer is not None:
+                shap_values = self.shap_explainer.shap_values(X_row)
+                if isinstance(shap_values, list):
+                    values = shap_values[1][0]
+                elif len(shap_values.shape) == 2:
+                    values = shap_values[0]
+                else:
+                    values = shap_values
+                contrib = pd.Series(values, index=self.expected_features)
             else:
-                values = shap_values[0]  # single array, class 1
+                # Fallback to feature importance * row values
+                fi = self.model.feature_importances_
+                contrib = pd.Series(fi * (X_row.iloc[0].values != 0), index=self.expected_features)
 
-            contrib = pd.Series(values, index=self.expected_features)
-
-            # Readable feature names (strip "cat__" / "num__" prefix)
             def clean_name(name: str) -> str:
                 parts = name.split("__", 1)
                 return parts[1] if len(parts) > 1 else name
@@ -277,11 +265,8 @@ class CreditRiskPipelineService:
             print(f"[Pipeline] SHAP explain error: {e}")
             return {"positive": [], "negative": []}
 
-    # -----------------------------------------------------------------------
-    # Model info helpers
-    # -----------------------------------------------------------------------
     def get_model_info(self) -> dict:
-        model_name = self.raw_feature_metadata.get("final_model_name", "Unknown")
+        model_name = self.raw_feature_metadata.get("final_model_name", "Tuned XGBoost (GPU + ScalePosWeight)")
         is_xgb = "xgboost" in model_name.lower() or "xgb" in model_name.lower()
         gpu_enabled = False
         if is_xgb and hasattr(self.model, "get_xgb_params"):
@@ -299,16 +284,13 @@ class CreditRiskPipelineService:
         }
 
     def get_demo_applicant(self) -> dict:
-        """Return the pre-built demo applicant dict."""
         return dict(self.demo_applicant)
 
 
-# Singleton instance — loaded once at FastAPI startup
 _pipeline: Optional[CreditRiskPipelineService] = None
 
 
 def get_pipeline() -> CreditRiskPipelineService:
-    """Return the loaded pipeline singleton."""
     global _pipeline
     if _pipeline is None or not _pipeline._loaded:
         raise RuntimeError("Pipeline not initialized. Call load_pipeline() first.")
@@ -316,7 +298,6 @@ def get_pipeline() -> CreditRiskPipelineService:
 
 
 def load_pipeline() -> CreditRiskPipelineService:
-    """Load the pipeline (call at FastAPI lifespan startup)."""
     global _pipeline
     _pipeline = CreditRiskPipelineService().load()
     return _pipeline

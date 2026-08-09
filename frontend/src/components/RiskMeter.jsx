@@ -33,19 +33,19 @@ export default function RiskMeter({ probability, riskCategory }) {
         width: '100%',
         height: 12,
         borderRadius: 6,
-        background: 'linear-gradient(to right, #10b981, #f59e0b, #ef4444)',
+        background: 'linear-gradient(to right, #10b981 0%, #10b981 35%, #f59e0b 35%, #f59e0b 64%, #ef4444 64%, #ef4444 100%)',
         position: 'relative',
         overflow: 'visible',
         boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.3)',
       }}>
         {/* Threshold markers */}
         <div style={{
-          position: 'absolute', left: '30%', top: -4, bottom: -4,
-          width: 2, background: 'rgba(255,255,255,0.3)', borderRadius: 1,
+          position: 'absolute', left: '35%', top: -4, bottom: -4,
+          width: 2, background: 'rgba(255,255,255,0.4)', borderRadius: 1,
         }} />
         <div style={{
-          position: 'absolute', left: '60%', top: -4, bottom: -4,
-          width: 2, background: 'rgba(255,255,255,0.3)', borderRadius: 1,
+          position: 'absolute', left: '64%', top: -4, bottom: -4,
+          width: 2, background: 'rgba(255,255,255,0.4)', borderRadius: 1,
         }} />
 
         {/* Needle */}
@@ -70,8 +70,8 @@ export default function RiskMeter({ probability, riskCategory }) {
       {/* Threshold labels */}
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, position: 'relative' }}>
         <span style={{ fontSize: 11, color: '#64748b' }}>0%</span>
-        <span style={{ fontSize: 11, color: '#64748b', position: 'absolute', left: '30%', transform: 'translateX(-50%)' }}>30%</span>
-        <span style={{ fontSize: 11, color: '#64748b', position: 'absolute', left: '60%', transform: 'translateX(-50%)' }}>60%</span>
+        <span style={{ fontSize: 11, color: '#64748b', position: 'absolute', left: '35%', transform: 'translateX(-50%)' }}>35%</span>
+        <span style={{ fontSize: 11, color: '#64748b', position: 'absolute', left: '64%', transform: 'translateX(-50%)' }}>64%</span>
         <span style={{ fontSize: 11, color: '#64748b' }}>100%</span>
       </div>
 

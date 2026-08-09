@@ -1,5 +1,8 @@
 {
-  "low_threshold": 0.3,
-  "high_threshold": 0.6,
-  "note": "Demonstration thresholds only \u2014 not bank-approved regulatory thresholds."
+  "low_threshold": 0.35,
+  "high_threshold": 0.64,
+  "method": "validation_mcc_f1_optimization",
+  "positive_class": 1,
+  "selection_metric": "F1 and MCC on validation set",
+  "note": "Validation-based thresholds reflecting actual predicted default risk probability."
 }
